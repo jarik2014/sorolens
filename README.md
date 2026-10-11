@@ -37,7 +37,7 @@ Soroban's public RPC retains events for 24 hours and transaction data for up to 
 ### Prerequisites
 
 - Docker and Docker Compose
-- Go 1.23+
+- Go 1.26+
 - Node 22+ and pnpm 9+
 
 ### 1. Start local dependencies
@@ -56,9 +56,9 @@ The one-shot `migrate` service applies `apps/api/internal/db/migrations/*.up.sql
 
 ```bash
 # Register a contract (uses the local API)
-go run ./cmd/sorolens track CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --network testnet
+go run ./cli track CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --network testnet
 # Run one indexer cycle manually
-go run ./cmd/sorolens index --once
+go run ./services/indexer --mode once
 ```
 
 The dashboard is at `http://localhost:3000` after `pnpm dev` in `apps/web`.
@@ -222,13 +222,13 @@ deploy.
 
 | Layer             | Technology                                                                                                                         |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| API               | Go 1.23, chi, pgx v5, deployed as Vercel serverless functions                                                                      |
-| Indexer           | Go 1.23, runs as a GitHub Actions scheduled workflow (5-minute cron)                                                               |
+| API               | Go 1.26, chi, pgx v5, deployed as Vercel serverless functions                                                                      |
+| Indexer           | Go 1.26, runs as a GitHub Actions scheduled workflow (5-minute cron)                                                               |
 | Database          | Postgres 16, hosted on Neon                                                                                                        |
 | Cache / locks     | Redis, hosted on Upstash                                                                                                           |
 | Dashboard         | Next.js 15, TypeScript, Tailwind CSS, deployed on Vercel                                                                           |
 | XDR decoder       | TypeScript package (`packages/xdr`), wraps `@stellar/stellar-sdk`                                                                  |
-| CLI               | Go 1.23, cobra                                                                                                                     |
+| CLI               | Go 1.26, cobra                                                                                                                     |
 | Go client         | Generated from [`docs/openapi.yaml`](docs/openapi.yaml) into `packages/go-client`                                                  |
 | Python client     | Generated from [`docs/openapi.yaml`](docs/openapi.yaml) into `packages/python-sdk` (sync + async, published to PyPI as `sorolens`) |
 | Fixture contract  | Rust (stable), Soroban SDK, deployed to Stellar testnet                                                                            |
