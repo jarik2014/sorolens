@@ -146,6 +146,8 @@ The **watchdog contract** at `contracts/watchdog/` is the piece that makes Sorol
 
 The REST API is described by an OpenAPI 3.0 spec at [`docs/openapi.yaml`](docs/openapi.yaml). Load it into Swagger UI, Redoc or Postman, or generate a client from it (the Go client in `packages/go-client` is generated this way). Run `make openapi` after changing a route: it fails if any route is undocumented, lints the spec with Redocly, and regenerates the Go client.
 
+Access control is documented in [`docs/authentication.md`](docs/authentication.md): the four API-key scopes (`read:contracts`, `write:contracts`, `read:watchdog`, `admin:*`), user roles, how to create your first key, and the exact error bodies for `401`/`403`/`422`.
+
 ---
 
 ## Deployed contracts
