@@ -182,7 +182,7 @@ go run . --mode continuous --poll-interval 5m
 
 ```bash
 cd apps/web
-cp .env.local.example .env.local   # set NEXT_PUBLIC_API_URL=http://localhost:8080
+cp .env.example .env.local        # set NEXT_PUBLIC_API_URL=http://localhost:8080
 pnpm install
 pnpm dev     # starts on :3000
 ```
