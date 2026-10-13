@@ -90,6 +90,11 @@ This policy covers:
 - The XDR decoder package (`packages/xdr`)
 - The Sorolens dashboard (`apps/web`)
 - The fixture contract (`contracts/counter`) when deployed to testnet or mainnet
+- The Sorolens Rust SDK (`packages/rust-sdk`)
+- The Sorolens Python SDK (`packages/python-sdk`)
+- The Sorolens watchdog contract (`contracts/watchdog`) when deployed to testnet or mainnet
+- The Sorolens Discord bot (`services/discord-bot`)
+- The Sorolens browser extension (`extension/`)
 
 Out of scope:
 
