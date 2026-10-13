@@ -7,7 +7,6 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Compare Contracts — Sorolens",
     description: "Side-by-side comparison of Soroban contract metrics.",
-    url: "https://sorolens.dev/compare",
   },
   alternates: {
     canonical: "/compare",

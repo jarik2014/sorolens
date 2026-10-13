@@ -14,7 +14,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: `Watchdog · ${shortId} — Sorolens`,
       description: `Health checks and alert history for Soroban contract ${id}.`,
-      url: `https://sorolens.dev/watchdog/${id}`,
     },
     alternates: {
       canonical: `/watchdog/${id}`,

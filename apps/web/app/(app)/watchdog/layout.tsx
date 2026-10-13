@@ -7,7 +7,6 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Watchdog — Sorolens",
     description: "On-chain anomaly detection dashboard for Soroban contracts.",
-    url: "https://sorolens.dev/watchdog",
   },
   alternates: {
     canonical: "/watchdog",

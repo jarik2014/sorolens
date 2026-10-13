@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Event Stream",
+  title: "Events",
   description:
-    "Real-time feed of Soroban contract events streamed via SSE. Filter by contract ID and watch decoded topics arrive live.",
+    "Browse indexed Soroban contract events — filter by contract, event type and date range, or follow the live SSE stream at /events/live.",
   openGraph: {
-    title: "Event Stream — Sorolens",
-    description: "Real-time feed of Soroban contract events streamed via SSE.",
-    url: "https://sorolens.dev/events",
+    title: "Events — Sorolens",
+    description: "Indexed Soroban contract events, with a live SSE stream at /events/live.",
   },
   alternates: {
     canonical: "/events",
