@@ -187,6 +187,8 @@ pnpm install
 pnpm dev     # starts on :3000
 ```
 
+See `apps/web/README.md` for detailed instructions on running the dashboard, environment variables, routing, E2E mocking, and adding pages.
+
 ### `packages/xdr` - TypeScript XDR decoder
 
 ```bash
