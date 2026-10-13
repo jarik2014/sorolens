@@ -1,0 +1,75 @@
+name: k6 smoke
+
+# The load tests need a full stack (Postgres + Redis + API) and a seeded
+# dataset, so like the integration suite they are opt-in: label a pull request
+# with `run-load-tests`, trigger the workflow by hand, or wait for the nightly
+# run.
+on:
+  pull_request:
+    types: [labeled]
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'run-load-tests'
+    name: k6 smoke (seeded dataset)
+    runs-on: ubuntu-latest
+    env:
+      DB_URL: postgres://postgres:test@localhost:5432/sorolens_test
+      BASE_URL: http://localhost:8080
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the integration stack
+        run: docker compose up -d --build
+        working-directory: tests/integration
+
+      - name: Wait for the API
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -sf http://localhost:8080/readyz > /dev/null; then
+              echo "API is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not become ready in 120s"
+          exit 1
+
+      - name: Apply migrations
+        run: |
+          for f in $(ls apps/api/internal/db/migrations/*.up.sql | sort); do
+            echo "applying $f"
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Seed a small dataset
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -v n=20000 -v i=2000 -f tests/load/seed.sql
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run the smoke scenarios (thresholds enforced by k6)
+        run: |
+          k6 run --vus 5 --duration 20s tests/load/events.js
+          k6 run --vus 5 --duration 20s tests/load/invocations.js
+          k6 run --vus 5 --duration 20s tests/load/search.js
+
+      - name: Dump API logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail 200 api
+        working-directory: tests/integration
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+        working-directory: tests/integration

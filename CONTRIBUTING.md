@@ -187,6 +187,13 @@ pnpm install
 pnpm dev     # starts on :3000
 ```
 
+### Load tests (k6)
+
+The read-heavy endpoints have a k6 suite under `tests/load/` with a seeded
+dataset and enforced latency thresholds. `tests/load/README.md` documents the
+local flow (docker compose + migrations + `seed.sql`) and the opt-in CI smoke
+job (`run-load-tests` label, nightly schedule or manual dispatch).
+
 ### `packages/xdr` - TypeScript XDR decoder
 
 ```bash
