@@ -74,6 +74,10 @@ test:
 	cd apps/api && go test -race ./...
 	cd services/indexer && go test -race ./...
 	cd cli && go test -race ./...
+	cd packages/go-client && go test -race ./...
+	cd contracts/counter && cargo test
+	cd contracts/watchdog && cargo test
+	cd packages/rust-sdk && cargo test --all-features
 	pnpm test
 
 ## openapi: check docs/openapi.yaml covers every live API route, lint it,
@@ -101,9 +105,9 @@ lint-openapi:
 
 ## lint: run golangci-lint and pnpm lint across the monorepo
 lint:
-	cd apps/api && golangci-lint run ./... || true
-	cd services/indexer && golangci-lint run ./... || true
-	cd cli && golangci-lint run ./... || true
+	cd apps/api && golangci-lint run ./...
+	cd services/indexer && golangci-lint run ./...
+	cd cli && golangci-lint run ./...
 	pnpm lint
 
 ## dev: start the Next.js dev server (and any other parallel dev scripts)
