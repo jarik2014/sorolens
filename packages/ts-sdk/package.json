@@ -1,0 +1,28 @@
+{
+  "name": "@sorolens/ts-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript client for the Sorolens API, generated from docs/openapi.yaml",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "gen": "node scripts/generate.mjs",
+    "check": "node scripts/generate.mjs --check",
+    "lint": "echo \"No lint yet\"",
+    "prepublishOnly": "npm run gen && npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.9",
+    "yaml": "^2.8.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -109,6 +109,33 @@ jobs:
       - name: Verify no diff
         run: git diff --exit-code -- packages/go-client/internal
   # ------------------------------------------------------------
+  # The TypeScript SDK's operation table and types are generated from
+  # docs/openapi.yaml (issue #555): fail when they are out of date.
+  # ------------------------------------------------------------
+  ts-sdk:
+    name: TypeScript SDK up-to-date, build and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Set up pnpm 11
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Generated files match docs/openapi.yaml
+        run: pnpm --filter @sorolens/ts-sdk check
+      - name: Build
+        run: pnpm --filter @sorolens/ts-sdk build
+      - name: Test
+        run: pnpm --filter @sorolens/ts-sdk test
+
+  # ------------------------------------------------------------
   # Node: XDR decoder package and shared packages
   # ------------------------------------------------------------
   node:

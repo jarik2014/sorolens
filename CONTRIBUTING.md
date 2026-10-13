@@ -196,6 +196,19 @@ pnpm build   # compiles TypeScript to dist/
 pnpm test    # runs vitest
 ```
 
+### `packages/ts-sdk` - TypeScript SDK
+
+The operation table and the schema types are generated from `docs/openapi.yaml`:
+
+```bash
+pnpm --filter @sorolens/ts-sdk gen     # regenerate src/generated/*
+pnpm --filter @sorolens/ts-sdk check   # fails when the committed files are stale
+pnpm --filter @sorolens/ts-sdk test
+```
+
+Commit the regenerated files together with any spec change — the CI job
+"TypeScript SDK up-to-date" fails otherwise. See `packages/ts-sdk/README.md`.
+
 ### `cli/` - Go CLI
 
 ```bash

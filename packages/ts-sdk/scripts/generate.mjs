@@ -1,0 +1,272 @@
+#!/usr/bin/env node
+/**
+ * Generates packages/ts-sdk/src/generated/*.ts from docs/openapi.yaml.
+ *
+ *   node scripts/generate.mjs            # write the files
+ *   node scripts/generate.mjs --check    # fail when the committed files are stale
+ *
+ * The generator is deliberately dependency-light (yaml only) and emits:
+ *   - src/generated/types.ts      — one TS type per components/schemas entry
+ *   - src/generated/operations.ts — the operation table the client uses
+ *
+ * Anything the simple JSON-Schema mapper cannot express falls back to `unknown`
+ * or `Record<string, unknown>`, and the file header records how many schemas were
+ * mapped exactly, so the gap is visible instead of silent.
+ */
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { parse } from "yaml";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(here, "..");
+const repoRoot = path.resolve(packageRoot, "..", "..");
+
+const SPEC_PATH = path.join(repoRoot, "docs", "openapi.yaml");
+const GENERATED_DIR = path.join(packageRoot, "src", "generated");
+const TYPES_PATH = path.join(GENERATED_DIR, "types.ts");
+const OPERATIONS_PATH = path.join(GENERATED_DIR, "operations.ts");
+
+const METHODS = ["get", "post", "put", "patch", "delete"];
+const MAX_DEPTH = 10;
+const MAX_INLINE_DEPTH = 2;
+
+function deref(doc, node, depth = 0) {
+  let current = node;
+  let hops = 0;
+  while (current && typeof current === "object" && "$ref" in current) {
+    if (hops++ > MAX_DEPTH) return undefined;
+    current = current.$ref
+      .replace(/^#\//, "")
+      .split("/")
+      .reduce((acc, key) => (acc == null ? acc : acc[key]), doc);
+  }
+  return current;
+}
+
+/** "ApiKeyResponse" -> "ApiKeyResponse"; keeps the spec's own naming. */
+function typeName(schemaName) {
+  return schemaName.replace(/[^A-Za-z0-9_]/g, "_");
+}
+
+function literal(value) {
+  return JSON.stringify(value);
+}
+
+/** Maps a JSON Schema node to a TypeScript type expression. */
+function tsType(doc, schema, depth = 0) {
+  const resolved = deref(doc, schema);
+  if (!resolved || typeof resolved !== "object" || depth > MAX_DEPTH) return "unknown";
+
+  if (Array.isArray(resolved.enum) && resolved.enum.length > 0) {
+    const allStrings = resolved.enum.every((v) => typeof v === "string");
+    return allStrings
+      ? resolved.enum.map((v) => literal(v)).join(" | ")
+      : resolved.enum.map((v) => literal(v)).join(" | ");
+  }
+  if (resolved.oneOf || resolved.anyOf) {
+    const parts = (resolved.oneOf ?? resolved.anyOf).map((s) => tsType(doc, s, depth + 1));
+    return Array.from(new Set(parts)).join(" | ");
+  }
+  if (resolved.allOf) {
+    return resolved.allOf.map((s) => tsType(doc, s, depth + 1)).join(" & ");
+  }
+  if (resolved.nullable === true && resolved.type) {
+    return `${tsType(doc, { ...resolved, nullable: false }, depth + 1)} | null`;
+  }
+
+  switch (resolved.type) {
+    case "string":
+      return "string";
+    case "integer":
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+    case "array": {
+      const item = tsType(doc, resolved.items ?? {}, depth + 1);
+      // Parenthesise unions so `A | B[]` never means the wrong thing.
+      return item.includes("|") ? `Array<${item}>` : `${item}[]`;
+    }
+    case "object":
+      // Inline objects are expanded up to MAX_INLINE_DEPTH; deeper ones become
+      // Record<string, unknown> so a single response schema cannot blow the
+      // generated file up into tens of thousands of lines.
+      if (!resolved.properties || depth >= MAX_INLINE_DEPTH) {
+        return "Record<string, unknown>";
+      }
+      return objectLiteral(doc, resolved, depth + 1);
+    default:
+      return "unknown";
+  }
+}
+
+function objectLiteral(doc, schema, depth) {
+  const required = new Set(schema.required ?? []);
+  const lines = Object.entries(schema.properties).map(([name, propertySchema]) => {
+    const optional = required.has(name) ? "" : "?";
+    const key = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : literal(name);
+    return `  ${key}${optional}: ${tsType(doc, propertySchema, depth + 1)};`;
+  });
+  if (lines.length === 0) return "Record<string, unknown>";
+  return `{\n${lines.join("\n")}\n}`;
+}
+
+function renderTypes(doc) {
+  const schemas = doc.components?.schemas ?? {};
+  const exact = [];
+  const fallback = [];
+  const blocks = [];
+
+  for (const [name, schema] of Object.entries(schemas)) {
+    const resolved = deref(doc, schema) ?? {};
+    const identifier = typeName(name);
+    if (resolved.type === "object" && resolved.properties) {
+      exact.push(name);
+      blocks.push(`export interface ${identifier} ${objectLiteral(doc, resolved, 0)}`);
+    } else {
+      fallback.push(name);
+      blocks.push(`export type ${identifier} = ${tsType(doc, resolved)};`);
+    }
+  }
+
+  return {
+    text: `// Generated by scripts/generate.mjs from docs/openapi.yaml — do not edit.
+//
+// ${exact.length} of ${exact.length + fallback.length} component schemas mapped to an
+// interface; the rest fall back to a type alias. Regenerate with
+// \`pnpm --filter @sorolens/ts-sdk gen\`.
+
+${blocks.join("\n\n")}
+`,
+    exact: exact.length,
+    total: exact.length + fallback.length,
+  };
+}
+
+function operationEntry(doc, path_, method, raw) {
+  const resolved = deref(doc, raw) ?? {};
+  const parameters = [];
+  for (const candidate of [
+    ...(doc.paths[path_]?.parameters ?? []),
+    ...(resolved.parameters ?? []),
+  ]) {
+    const parameter = deref(doc, candidate);
+    if (!parameter?.name) continue;
+    parameters.push({
+      name: parameter.name,
+      in: parameter.in,
+      required: parameter.in === "path" ? true : Boolean(parameter.required),
+      type: deref(doc, parameter.schema)?.type ?? "string",
+    });
+  }
+
+  const media = deref(doc, resolved.requestBody)?.content?.["application/json"];
+  const okResponse = Object.entries(resolved.responses ?? {}).find(([code]) =>
+    code.startsWith("2")
+  );
+  const responseSchema = okResponse
+    ? deref(doc, deref(doc, okResponse[1])?.content?.["application/json"]?.schema)
+    : undefined;
+
+  return {
+    method: method.toUpperCase(),
+    path: path_,
+    tags: resolved.tags ?? ["Other"],
+    summary: resolved.summary ?? resolved.description ?? `${method.toUpperCase()} ${path_}`,
+    parameters,
+    requestBodySchema: media ? (deref(doc, media.schema)?.title ?? null) : null,
+    responseSchema: responseSchema?.title ?? null,
+    responseIsArray: responseSchema?.type === "array",
+  };
+}
+
+function renderOperations(doc) {
+  const operations = {};
+  for (const [path_, item] of Object.entries(doc.paths ?? {})) {
+    for (const method of METHODS) {
+      if (!item?.[method]) continue;
+      const entry = operationEntry(doc, path_, method, item[method]);
+      const id =
+        deref(doc, item[method])?.operationId ??
+        `${method}${path_.replace(/[^A-Za-z0-9]+(.)?/g, (_, c) => (c ?? "").toUpperCase())}`;
+      operations[id] = entry;
+    }
+  }
+
+  const ids = Object.keys(operations).sort();
+  const sorted = Object.fromEntries(ids.map((id) => [id, operations[id]]));
+
+  return `// Generated by scripts/generate.mjs from docs/openapi.yaml — do not edit.
+//
+// ${ids.length} operations. Regenerate with \`pnpm --filter @sorolens/ts-sdk gen\`.
+
+export interface OperationParameter {
+  name: string;
+  in: "path" | "query" | "header" | "cookie";
+  required: boolean;
+  type: string;
+}
+
+export interface Operation {
+  method: string;
+  path: string;
+  tags: readonly string[];
+  summary: string;
+  parameters: readonly OperationParameter[];
+  requestBodySchema: string | null;
+  responseSchema: string | null;
+  responseIsArray: boolean;
+}
+
+export const operations = ${JSON.stringify(sorted, null, 2)} as const satisfies Record<string, Operation>;
+
+export type OperationId = keyof typeof operations;
+
+export const operationIds = Object.keys(operations) as OperationId[];
+`;
+}
+
+function writeOrCheck(target, text, check) {
+  const relative = path.relative(repoRoot, target);
+  let current = "";
+  try {
+    current = readFileSync(target, "utf8");
+  } catch {
+    current = "";
+  }
+
+  if (check) {
+    if (current !== text) {
+      console.error(`${relative} is out of date with docs/openapi.yaml — run \`pnpm --filter @sorolens/ts-sdk gen\``);
+      return false;
+    }
+    return true;
+  }
+
+  mkdirSync(path.dirname(target), { recursive: true });
+  writeFileSync(target, text);
+  console.log(`wrote ${relative}`);
+  return true;
+}
+
+function main() {
+  const check = process.argv.includes("--check");
+  const doc = parse(readFileSync(SPEC_PATH, "utf8"));
+
+  const types = renderTypes(doc);
+  const operations = renderOperations(doc);
+
+  const ok =
+    writeOrCheck(TYPES_PATH, types.text, check) &&
+    writeOrCheck(OPERATIONS_PATH, operations, check);
+
+  if (check && ok) {
+    console.log(
+      `ts-sdk generated files match docs/openapi.yaml (${types.total} schemas mapped, ${types.exact} as interfaces)`
+    );
+  }
+  if (!ok) process.exit(1);
+}
+
+main();
