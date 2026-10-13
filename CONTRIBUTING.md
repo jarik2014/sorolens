@@ -187,6 +187,17 @@ pnpm install
 pnpm dev     # starts on :3000
 ```
 
+The playground's endpoint list is generated, not hand-written:
+
+```bash
+pnpm --filter @sorolens/web gen:openapi    # rewrites apps/web/lib/openapi.generated.ts
+pnpm --filter @sorolens/web check:openapi  # fails when the file is stale
+```
+
+`apps/web/lib/openapi.generated.ts` is rebuilt from `docs/openapi.yaml`; the CI job
+"Playground endpoint list up-to-date" runs the check on every PR, so commit the regenerated file
+together with any spec change.
+
 ### `packages/xdr` - TypeScript XDR decoder
 
 ```bash

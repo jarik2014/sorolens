@@ -139,6 +139,29 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Lint
         run: pnpm --filter "./packages/**" lint
+
+  # ------------------------------------------------------------
+  # The playground's endpoint list is generated from docs/openapi.yaml
+  # (issue #593). Fail when the committed file is older than the spec.
+  # ------------------------------------------------------------
+  web-openapi-stale:
+    name: Playground endpoint list up-to-date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Set up pnpm 11
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Regenerate the playground endpoint list and compare
+        run: pnpm --filter @sorolens/web check:openapi
   # ------------------------------------------------------------
   # Prettier formatting (issue #216). Runs the acceptance criterion
   # verbatim: `pnpm prettier --check` must pass in CI.

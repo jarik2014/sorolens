@@ -9,7 +9,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --environment jsdom",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "gen:openapi": "node scripts/generate-openapi-operations.mjs",
+    "check:openapi": "node scripts/generate-openapi-operations.mjs --check"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
@@ -41,6 +43,7 @@
     "tailwindcss": "^4.1.6",
     "typescript": "^5.5.0",
     "vitest": "^2.1.9",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "yaml": "^2.8.0"
   }
 }

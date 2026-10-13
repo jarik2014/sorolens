@@ -29,6 +29,7 @@ yarn.lock
 
 # Generated or vendored code
 packages/go-client/internal/
+apps/web/lib/openapi.generated.ts
 apps/api/internal/db/migrations/
 *.min.js
 *.min.css

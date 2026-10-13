@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { EndpointEntry, endpointsByTag } from "@/lib/openapi";
+import { loadSettings } from "@/lib/settings";
 import {
   buildCurl,
   buildUrl,
@@ -25,6 +26,14 @@ export default function PlaygroundPage() {
   const [response, setResponse] = useState<ResponseState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+
+  // The key is not persisted by the playground itself: Settings already stores
+  // it in localStorage, so prefill it once on mount and leave the field alone
+  // afterwards.
+  useEffect(() => {
+    const stored = loadSettings().apiKey;
+    if (stored) setApiKey((current) => current || stored);
+  }, []);
 
   const curl = buildCurl(
     selected.method,
